@@ -1,0 +1,121 @@
+/* ══════════════════════════════════════════════════
+   AMS Dashboard — Estilos globales
+   ══════════════════════════════════════════════════ */
+
+body {
+    background-color: #0f0f1a !important;
+    color: #e0e0e0;
+}
+
+/* ── Tipografía ──────────────────────────────────── */
+h3, h4, h5 {
+    font-family: 'Rajdhani', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+/* ── Dropdowns (dark theme) ──────────────────────── */
+.Select-control,
+.Select-menu-outer {
+    background-color: #1a1a2e !important;
+    border-color: #2a2a3e !important;
+    color: #e0e0e0 !important;
+}
+
+.Select-value-label,
+.Select-placeholder {
+    color: #aaa !important;
+}
+
+.Select-option {
+    background-color: #1a1a2e !important;
+    color: #ddd !important;
+}
+
+.Select-option:hover,
+.Select-option.is-focused {
+    background-color: #2a2a3e !important;
+}
+
+.Select-multi-value-wrapper {
+    background-color: #1a1a2e !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+::-webkit-scrollbar-track {
+    background: #0d0d1a;
+}
+::-webkit-scrollbar-thumb {
+    background: #2a2a3e;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3a3a4e;
+}
+
+/* ── Tablas ──────────────────────────────────────── */
+.table-dark th {
+    background-color: #0d0d1a !important;
+    color: #4da6ff;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #2a2a3e !important;
+}
+
+.table-dark td {
+    border-color: #1a1a2e !important;
+    vertical-align: middle;
+}
+
+.table-hover tbody tr:hover td {
+    background-color: rgba(77,166,255,0.04) !important;
+}
+
+/* ── Cards ───────────────────────────────────────── */
+.card {
+    background-color: #13131f !important;
+    border: 1px solid #1e1e30 !important;
+    border-radius: 8px !important;
+}
+
+/* ── Botones outline ─────────────────────────────── */
+.btn-outline-secondary {
+    border-color: #2a2a3e;
+    color: #888;
+}
+.btn-outline-secondary:hover {
+    background-color: #2a2a3e;
+    color: #ddd;
+    border-color: #3a3a4e;
+}
+
+/* ── Sidebar NavLinks ────────────────────────────── */
+.nav-pills .nav-link {
+    color: #888 !important;
+    font-size: 13px;
+    transition: all 0.15s ease;
+}
+.nav-pills .nav-link:hover {
+    color: #ddd !important;
+    background-color: rgba(255,255,255,0.05) !important;
+}
+.nav-pills .nav-link.active {
+    background-color: #1e1e40 !important;
+    color: #4da6ff !important;
+    border-left: 3px solid #4da6ff;
+}
+
+/* ── Alertas ─────────────────────────────────────── */
+.alert {
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+/* ── Plotly charts background ────────────────────── */
+.js-plotly-plot .plotly .bg {
+    fill: transparent !important;
+}
