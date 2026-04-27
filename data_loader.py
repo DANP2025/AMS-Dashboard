@@ -7,12 +7,11 @@ _cache = {'data': None, 'mtime': 0.0}
 # Detectar si estamos en Render
 IS_RENDER = os.environ.get('RENDER') is not None
 
-# Ruta del archivo Excel: usar variable de entorno o ruta relativa al script
-if IS_RENDER:
-    # En Render, usar ruta directa del servidor
-    XLSX_PATH = os.environ.get('AMS_XLSX_PATH', '/opt/render/project/src/AMS.xlsx')
-else:
-    # Local: usar variable de entorno o ruta relativa
+# Prioridad 1: carpeta actual (os.getcwd())
+# Prioridad 2: variable de entorno AMS_XLSX_PATH
+# Prioridad 3: ruta relativa al script (fallback local)
+XLSX_PATH = os.path.join(os.getcwd(), 'AMS.xlsx')
+if not os.path.exists(XLSX_PATH):
     XLSX_PATH = os.environ.get('AMS_XLSX_PATH', os.path.join(os.path.dirname(__file__), '..', 'AMS.xlsx'))
 
 # Convertir a ruta absoluta para logs
@@ -42,6 +41,13 @@ def load_data():
 
         if not os.path.exists(XLSX_PATH_ABS):
             print(f"[ERROR] El archivo no existe en la ruta: {XLSX_PATH_ABS}")
+            # Listar archivos en el directorio para diagnóstico
+            try:
+                dir_path = os.path.dirname(XLSX_PATH_ABS) or os.getcwd()
+                archivos = os.listdir(dir_path)
+                print(f"[DEBUG] Archivos en {dir_path}: {archivos}")
+            except Exception as e:
+                print(f"[ERROR] No se pudo listar directorio: {e}")
             return None
 
         mtime = os.path.getmtime(XLSX_PATH_ABS)
