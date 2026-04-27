@@ -548,11 +548,10 @@ def crear_forest_plot(resultados, nombre_jugador, mes_pre, mes_post):
             font=dict(family='Rajdhani, sans-serif', size=15, color='#1a1a2e')
         ),
         xaxis=dict(
-            title="Effect Size (SD)  |  SWC = +/- 0.2",
+            title=dict(text="Effect Size (SD)  |  SWC = +/- 0.2", font=dict(size=14, color='#555')),
             range=x_range,
             zeroline=False,
             gridcolor='rgba(0,0,0,0.05)',
-            titlefont=dict(size=14, color='#555'),  # Aumentado de 12 a 14
             tickfont=dict(size=13, color='#333'),  # Aumentado de 11 a 13
             fixedrange=True,
         ),
