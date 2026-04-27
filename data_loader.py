@@ -3,8 +3,20 @@ import pandas as pd
 import numpy as np
 
 _cache = {'data': None, 'mtime': 0.0}
+
+# Detectar si estamos en Render
+IS_RENDER = os.environ.get('RENDER') is not None
+
 # Ruta del archivo Excel: usar variable de entorno o ruta relativa al script
-XLSX_PATH = os.environ.get('AMS_XLSX_PATH', os.path.join(os.path.dirname(__file__), '..', 'AMS.xlsx'))
+if IS_RENDER:
+    # En Render, usar ruta directa del servidor
+    XLSX_PATH = os.environ.get('AMS_XLSX_PATH', '/opt/render/project/src/AMS.xlsx')
+else:
+    # Local: usar variable de entorno o ruta relativa
+    XLSX_PATH = os.environ.get('AMS_XLSX_PATH', os.path.join(os.path.dirname(__file__), '..', 'AMS.xlsx'))
+
+# Convertir a ruta absoluta para logs
+XLSX_PATH_ABS = os.path.abspath(XLSX_PATH)
 
 VARS_RENDIMIENTO = ['VO2 max', 'F0', 'V0', 'Pmax', 'Vmax', 'RF', 'DRF']
 VARS_PFZA = [
@@ -23,14 +35,26 @@ def _normalizar_categoria(cat):
 def load_data():
     global _cache
     try:
-        mtime = os.path.getmtime(XLSX_PATH)
+        # Log: imprimir ruta absoluta para diagnóstico
+        print(f"[DEBUG] Entorno: {'Render' if IS_RENDER else 'Local'}")
+        print(f"[DEBUG] Ruta intentando abrir: {XLSX_PATH_ABS}")
+        print(f"[DEBUG] Archivo existe: {os.path.exists(XLSX_PATH_ABS)}")
+
+        if not os.path.exists(XLSX_PATH_ABS):
+            print(f"[ERROR] El archivo no existe en la ruta: {XLSX_PATH_ABS}")
+            return None
+
+        mtime = os.path.getmtime(XLSX_PATH_ABS)
         if _cache['data'] is not None and mtime == _cache['mtime']:
+            print(f"[DEBUG] Usando cache (mtime: {mtime})")
             return _cache['data']
 
-        xl = pd.ExcelFile(XLSX_PATH)
+        print(f"[DEBUG] Cargando archivo Excel (mtime: {mtime})...")
+        xl = pd.ExcelFile(XLSX_PATH_ABS, engine='openpyxl')
         base = xl.parse('Base de datos')
         rend = xl.parse('Rendimiento')
         pfza_raw = xl.parse('Plat de fuerza')
+        print(f"[DEBUG] Excel cargado exitosamente")
 
         # ── Crear NombreCompleto en base ──────────────────────────────────
         base['NombreCompleto'] = (
