@@ -4,6 +4,7 @@ from dash import html, dcc, Input, Output, callback, dash_table
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+# Force redeploy: fix titlefont to title dict syntax
 
 from data_loader import (
     load_data, get_categorias, get_jugadores_por_categoria,
