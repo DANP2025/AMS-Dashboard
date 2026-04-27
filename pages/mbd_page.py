@@ -281,18 +281,26 @@ def actualizar_tabla(dni_jugador_list, categoria, mes_pre, mes_post, n_intervals
     Input('auto-reload', 'n_intervals'),
 )
 def actualizar_forest(dni_grafico, categoria, mes_pre, mes_post, n_intervals):
+    import sys
+    print(f"[MBD FOREST] Iniciando callback - dni: {dni_grafico}, cat: {categoria}, pre: {mes_pre}, post: {mes_post}", file=sys.stderr)
+    
     vacio = html.Div("Selecciona un jugador para el Forest Plot",
                      style={'textAlign': 'center', 'color': '#888', 'padding': '30px'})
     if not all([dni_grafico, categoria, mes_pre, mes_post]):
+        print(f"[MBD FOREST] Faltan parámetros", file=sys.stderr)
         return vacio, ""
 
     data = load_data()
     if not data:
+        print(f"[MBD FOREST] Error cargando datos", file=sys.stderr)
         return html.Div("Error cargando datos", style={'color': '#dc3545'}), ""
+
+    print(f"[MBD FOREST] Datos cargados correctamente", file=sys.stderr)
 
     from data_loader import filter_by_month_smart
     vars_rend = get_vars_rendimiento(data)
     vars_pfza = get_vars_pfza(data)
+    print(f"[MBD FOREST] Variables - rend: {len(vars_rend)}, pfza: {len(vars_pfza)}", file=sys.stderr)
 
     cat_norm = _norm_cat(categoria)
 
@@ -309,8 +317,11 @@ def actualizar_forest(dni_grafico, categoria, mes_pre, mes_post, n_intervals):
     pfza_pre  = filter_by_month_smart(pfza_cat, mes_pre,  categoria)
     pfza_post = filter_by_month_smart(pfza_cat, mes_post, categoria)
 
+    print(f"[MBD FOREST] Datos filtrados - rend_pre: {len(rend_pre)}, rend_post: {len(rend_post)}, pfza_pre: {len(pfza_pre)}, pfza_post: {len(pfza_post)}", file=sys.stderr)
+
     nombre_row = data['base'][data['base']['DNI'] == dni_grafico]['NombreCompleto'].values
     nombre = nombre_row[0] if len(nombre_row) > 0 else str(dni_grafico)
+    print(f"[MBD FOREST] Nombre jugador: {nombre}", file=sys.stderr)
 
     resultados = []
     for var in vars_rend + vars_pfza:
@@ -333,12 +344,15 @@ def actualizar_forest(dni_grafico, categoria, mes_pre, mes_post, n_intervals):
             mbd['tipo'] = 'Rendimiento' if var in vars_rend else 'Fuerza'
             resultados.append(mbd)
 
+    print(f"[MBD FOREST] Resultados calculados: {len(resultados)}", file=sys.stderr)
+
     if not resultados:
         return html.Div("Sin datos suficientes para este jugador/periodo",
                         style={'textAlign': 'center', 'color': '#888', 'padding': '30px'}), ""
 
     fig = crear_forest_plot(resultados, nombre, mes_pre, mes_post)
     resumen = crear_resumen(resultados)
+    print(f"[MBD FOREST] Gráfico y resumen creados exitosamente", file=sys.stderr)
     return dcc.Graph(figure=fig, config={'displayModeBar': False}), resumen
 
 
