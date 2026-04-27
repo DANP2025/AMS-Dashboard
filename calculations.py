@@ -1,138 +1,132 @@
-import pandas as pd
 import numpy as np
-from scipy import stats
+import pandas as pd
+from scipy.stats import norm
 
+ICC = 0.90
 
-# ─── Z-SCORE ──────────────────────────────────────────────────────────────────
-
-def calc_zscore(valor_jugador, serie_comparacion):
+def calc_mbd(pre, post, sd_grupo_serie):
     """
-    Calcula el Z-score de un jugador respecto a un grupo de comparación.
-    Z = (valor - media_grupo) / std_grupo
-    Retorna np.nan si no hay datos suficientes o el valor es nulo.
+    Calcula MBD completo según Will Hopkins (Magnitude-Based Decisions).
+    pre, post: float — valores individuales del jugador
+    sd_grupo_serie: pd.Series — valores de la variable para toda la categoría en el pre-test
+    Retorna dict con todos los resultados o None si faltan datos.
     """
-    if pd.isna(valor_jugador):
-        return np.nan
-    validos = serie_comparacion.dropna()
-    if len(validos) < 2:
-        return np.nan
-    media = validos.mean()
-    desvio = validos.std()
-    if desvio == 0 or pd.isna(desvio):
-        return 0.0
-    return float((valor_jugador - media) / desvio)
-
-
-# ─── MBD — MAGNITUD BASADA EN DECISIONES (Will Hopkins) ─────────────────────
-
-def calc_mbd(pre_val, post_val, serie_pre_grupo, icc_estimado=0.90):
-    """
-    Calcula la Magnitud Basada en Decisiones según Will Hopkins.
-
-    Parámetros:
-    - pre_val          : valor del jugador en pre-test
-    - post_val         : valor del jugador en post-test
-    - serie_pre_grupo  : Serie con valores de TODO el grupo en pre-test (para SD)
-    - icc_estimado     : ICC estimado del test (default 0.90, típico para tests físicos)
-
-    Fórmulas (Hopkins, 2022):
-    - SWC  = 0.2 × SD_pre          (Smallest Worthwhile Change)
-    - TE   = SD_pre × √(1 - ICC)   (Error Típico estimado)
-    - Prob_beneficiosa = P(efecto_real > SWC)
-    - Prob_perjudicial = P(efecto_real < -SWC)
-    - Prob_trivial     = 1 - Prob_ben - Prob_per
-    - Effect Size      = cambio / SD_pre   (estandarizado)
-    """
-    if pd.isna(pre_val) or pd.isna(post_val):
+    if pd.isna(pre) or pd.isna(post):
         return None
 
-    validos_grupo = serie_pre_grupo.dropna()
-    if len(validos_grupo) < 2:
+    sd_vals = sd_grupo_serie.dropna()
+    if len(sd_vals) < 2:
         return None
 
-    sd_pre = validos_grupo.std()
-    if sd_pre == 0 or pd.isna(sd_pre):
+    sd_pre = float(sd_vals.std(ddof=1))
+    if sd_pre == 0:
         return None
 
-    cambio = float(post_val) - float(pre_val)
-    swc = 0.2 * sd_pre                          # Cambio Mínimo Apreciable
-    te = sd_pre * np.sqrt(1 - icc_estimado)     # Error Típico
-    incertidumbre = te * np.sqrt(2)             # Incertidumbre del cambio
+    SWC       = 0.2 * sd_pre
+    TE        = sd_pre * np.sqrt(1 - ICC)   # TE desde ICC = 0.90
+    SE_cambio = TE * np.sqrt(2)             # error del cambio (2 mediciones)
+    cambio    = post - pre
+    effect_size   = cambio / sd_pre
+    incertidumbre = 1.96 * SE_cambio        # IC 95%
 
-    if incertidumbre == 0:
-        prob_ben = 1.0 if cambio > swc else 0.0
-        prob_per = 1.0 if cambio < -swc else 0.0
-    else:
-        prob_ben = float(1 - stats.norm.cdf(swc, loc=cambio, scale=incertidumbre))
-        prob_per = float(stats.norm.cdf(-swc, loc=cambio, scale=incertidumbre))
+    prob_ben  = float(1 - norm.cdf((SWC  - cambio) / SE_cambio))
+    prob_per  = float(norm.cdf(    (-SWC - cambio) / SE_cambio))
+    prob_triv = max(0.0, 1.0 - prob_ben - prob_per)
 
-    prob_trivial = max(0.0, 1.0 - prob_ben - prob_per)
-    effect_size = cambio / sd_pre
-
+    # ── UN SOLO return ─────────────────────────────────────────────────
     return {
-        'cambio': cambio,
-        'effect_size': effect_size,       # en unidades de SD
-        'swc': swc,
-        'te': te,
-        'incertidumbre': incertidumbre,
-        'prob_ben': prob_ben,
-        'prob_per': prob_per,
-        'prob_trivial': prob_trivial,
-        'sd_pre': sd_pre,
+        'pre':          pre,
+        'post':         post,
+        'cambio':       cambio,
+        'effect_size':  effect_size,
+        'sd_pre':       sd_pre,
+        'SWC':          SWC,
+        'TE':           TE,
+        'SE_cambio':    SE_cambio,
+        'incertidumbre':incertidumbre,
+        'prob_ben':     prob_ben,
+        'prob_per':     prob_per,
+        'prob_triv':    prob_triv,
+        'limite_inf':   cambio - incertidumbre,
+        'limite_sup':   cambio + incertidumbre,
     }
 
 
-def get_etiqueta_inferencia(prob_ben, prob_per):
+def get_etiqueta_inferencia(p_ben, p_per):
     """
-    Etiqueta de inferencia según Hopkins.
-    Traducción exacta del DAX original del archivo Power BI.
-
-    Lógica:
-    - Primero evalúa riesgos (rojos)
-    - Luego evalúa beneficios (verdes)
-    - Por último lo incierto/trivial
-    - Calificador CLARO/NO CLARO: NO CLARO si ambas prob > 5%
+    Etiquetas de inferencia según Will Hopkins — MBI/MBD framework.
+    
+    Umbrales de probabilidad (Hopkins 2006, 2016):
+      >99.5% → Casi Seguro
+      95–99.5% → Muy Probable
+      75–95%   → Probable
+      25–75%   → Posible
+      5–25%    → Improbable
+      0.5–5%   → Muy Improbable
+      <0.5%    → Casi Seguro que No
+    
+    Claridad: resultado es NO CLARO si P_Ben > 0.05 Y P_Per > 0.05
+    simultáneamente (incertidumbre clínica real).
     """
-    p_ben = prob_ben
-    p_per = prob_per
+    no_claro = (p_ben > 0.05) and (p_per > 0.05)
+    sufijo   = " (NO CLARO)" if no_claro else " (CLARO)"
 
-    # Claridad
-    es_claro = not (p_ben > 0.05 and p_per > 0.05)
-    claridad = "CLARO" if es_claro else "NO CLARO"
-
-    # Evaluación (orden del DAX original)
+    # ── PERJUDICIAL — evaluar de mayor a menor certeza ──────────────────
+    if p_per > 0.995:
+        return "Casi Seguro Perjudicial"   + sufijo
     if p_per > 0.95:
-        etiqueta = "Muy Improbable"
-    elif p_per > 0.75:
-        etiqueta = "Improbable"
-    elif p_ben > 0.995:
-        etiqueta = "Casi Seguro"
-    elif p_ben > 0.95:
-        etiqueta = "Muy Probable"
-    elif p_ben > 0.75:
-        etiqueta = "Probable"
-    elif p_ben > 0.25:
-        etiqueta = "Posible"
-    else:
-        etiqueta = "Trivial"
+        return "Muy Probable Perjudicial"  + sufijo
+    if p_per > 0.75:
+        return "Probable Perjudicial"      + sufijo
+    if p_per > 0.25:
+        return "Posible Perjudicial"       + sufijo
 
-    return f"{etiqueta} ({claridad})"
+    # ── BENEFICIOSO — evaluar de mayor a menor certeza ─────────────────
+    if p_ben > 0.995:
+        return "Casi Seguro Beneficioso"   + sufijo
+    if p_ben > 0.95:
+        return "Muy Probable Beneficioso"  + sufijo
+    if p_ben > 0.75:
+        return "Probable Beneficioso"      + sufijo
+    if p_ben > 0.25:
+        return "Posible Beneficioso"       + sufijo
 
+    # ── TRIVIAL ─────────────────────────────────────────────────────────
+    return "Trivial" + sufijo
+
+
+# ── PALETA DE COLORES (coincide exactamente con zonas del Forest Plot) ──────
+
+# Fondo de celda según etiqueta
+COLORES_FONDO = {
+    "Casi Seguro Beneficioso":  "#155724",   # verde muy oscuro
+    "Muy Probable Beneficioso": "#1e7e34",   # verde oscuro
+    "Probable Beneficioso":     "#28a745",   # verde medio
+    "Posible Beneficioso":      "#c3e6cb",   # verde muy claro
+    "Casi Seguro Perjudicial":  "#721c24",   # rojo muy oscuro
+    "Muy Probable Perjudicial": "#c82333",   # rojo oscuro
+    "Probable Perjudicial":     "#dc3545",   # rojo medio
+    "Posible Perjudicial":      "#f5c6cb",   # rojo muy claro
+    "Trivial":                  "#e9ecef",   # gris claro
+}
+
+# Color de texto: blanco sobre fondos oscuros, oscuro sobre fondos claros
+COLORES_TEXTO = {
+    "Casi Seguro Beneficioso":  "#ffffff",
+    "Muy Probable Beneficioso": "#ffffff",
+    "Probable Beneficioso":     "#ffffff",
+    "Posible Beneficioso":      "#155724",   # texto verde oscuro sobre fondo verde claro
+    "Casi Seguro Perjudicial":  "#ffffff",
+    "Muy Probable Perjudicial": "#ffffff",
+    "Probable Perjudicial":     "#ffffff",
+    "Posible Perjudicial":      "#721c24",   # texto rojo oscuro sobre fondo rojo claro
+    "Trivial":                  "#495057",   # texto gris oscuro
+}
 
 def get_color_etiqueta(etiqueta):
-    """Color de fondo para cada etiqueta de inferencia."""
-    if "Casi Seguro" in etiqueta:
-        return "#0d6e33"
-    elif "Muy Probable" in etiqueta:
-        return "#1a7c3e"
-    elif "Probable" in etiqueta:
-        return "#28a745"
-    elif "Posible" in etiqueta:
-        return "#5cb85c"
-    elif "Trivial" in etiqueta:
-        return "#495057"
-    elif "Improbable" in etiqueta and "Muy" not in etiqueta:
-        return "#c0392b"
-    elif "Muy Improbable" in etiqueta:
-        return "#7b241c"
-    return "#495057"
+    """Devuelve (color_fondo, color_texto) para una etiqueta dada."""
+    # Extraer la parte sin el sufijo CLARO/NO CLARO
+    clave = etiqueta.replace(" (CLARO)", "").replace(" (NO CLARO)", "").strip()
+    fondo = COLORES_FONDO.get(clave, "#e9ecef")
+    texto = COLORES_TEXTO.get(clave, "#495057")
+    return fondo, texto
