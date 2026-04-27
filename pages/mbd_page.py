@@ -1,6 +1,6 @@
 import dash
 import dash_bootstrap_components as dbc
-from dash import html, dcc, Input, Output, callback
+from dash import html, dcc, Input, Output, callback, dash_table
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -260,14 +260,22 @@ def actualizar_selector_grafico(dni_list, categoria):
     Input('auto-reload', 'n_intervals'),
 )
 def actualizar_tabla(dni_jugador_list, categoria, mes_pre, mes_post, n_intervals):
-    if not all([dni_jugador_list, categoria, mes_pre, mes_post]):
-        return html.Div("Selecciona todos los parametros",
-                        style={'textAlign': 'center', 'color': '#666', 'padding': '20px'})
-    data = load_data()
-    if not data:
-        return html.Div("Error cargando datos",
-                        style={'textAlign': 'center', 'color': '#dc3545'})
-    return crear_tabla_multi_jugadores(dni_jugador_list, categoria, mes_pre, mes_post, data)
+    import sys
+    try:
+        if not all([dni_jugador_list, categoria, mes_pre, mes_post]):
+            return html.Div("Selecciona todos los parametros",
+                            style={'textAlign': 'center', 'color': '#666', 'padding': '20px'})
+        data = load_data()
+        if not data:
+            return html.Div("Error cargando datos - Verifica que AMS.xlsx esté en la ubicación correcta",
+                            style={'textAlign': 'center', 'color': '#dc3545', 'padding': '20px'})
+        return crear_tabla_multi_jugadores(dni_jugador_list, categoria, mes_pre, mes_post, data)
+    except Exception as e:
+        print(f"[MBD TABLA ERROR] {str(e)}", file=sys.stderr)
+        return html.Div([
+            html.H5("Error al generar la tabla", style={'color': '#dc3545'}),
+            html.P(f"Detalle: {str(e)}", style={'color': '#6c757d', 'fontSize': '12px'})
+        ], style={'textAlign': 'center', 'padding': '20px'})
 
 
 # ─── CALLBACK 2: Forest Plot + Resumen (puede tardar más, es independiente) ──
@@ -282,78 +290,87 @@ def actualizar_tabla(dni_jugador_list, categoria, mes_pre, mes_post, n_intervals
 )
 def actualizar_forest(dni_grafico, categoria, mes_pre, mes_post, n_intervals):
     import sys
-    print(f"[MBD FOREST] Iniciando callback - dni: {dni_grafico}, cat: {categoria}, pre: {mes_pre}, post: {mes_post}", file=sys.stderr)
-    
-    vacio = html.Div("Selecciona un jugador para el Forest Plot",
-                     style={'textAlign': 'center', 'color': '#888', 'padding': '30px'})
-    if not all([dni_grafico, categoria, mes_pre, mes_post]):
-        print(f"[MBD FOREST] Faltan parámetros", file=sys.stderr)
-        return vacio, ""
+    try:
+        print(f"[MBD FOREST] Iniciando callback - dni: {dni_grafico}, cat: {categoria}, pre: {mes_pre}, post: {mes_post}", file=sys.stderr)
 
-    data = load_data()
-    if not data:
-        print(f"[MBD FOREST] Error cargando datos", file=sys.stderr)
-        return html.Div("Error cargando datos", style={'color': '#dc3545'}), ""
+        vacio = html.Div("Selecciona un jugador para el Forest Plot",
+                         style={'textAlign': 'center', 'color': '#888', 'padding': '30px'})
+        if not all([dni_grafico, categoria, mes_pre, mes_post]):
+            print(f"[MBD FOREST] Faltan parámetros", file=sys.stderr)
+            return vacio, ""
 
-    print(f"[MBD FOREST] Datos cargados correctamente", file=sys.stderr)
+        data = load_data()
+        if not data:
+            print(f"[MBD FOREST] Error cargando datos", file=sys.stderr)
+            return html.Div("Error cargando datos - Verifica que AMS.xlsx esté en la ubicación correcta",
+                            style={'color': '#dc3545', 'padding': '20px'}), ""
 
-    from data_loader import filter_by_month_smart
-    vars_rend = get_vars_rendimiento(data)
-    vars_pfza = get_vars_pfza(data)
-    print(f"[MBD FOREST] Variables - rend: {len(vars_rend)}, pfza: {len(vars_pfza)}", file=sys.stderr)
+        print(f"[MBD FOREST] Datos cargados correctamente", file=sys.stderr)
 
-    cat_norm = _norm_cat(categoria)
+        from data_loader import filter_by_month_smart
+        vars_rend = get_vars_rendimiento(data)
+        vars_pfza = get_vars_pfza(data)
+        print(f"[MBD FOREST] Variables - rend: {len(vars_rend)}, pfza: {len(vars_pfza)}", file=sys.stderr)
 
-    rend_cat = data['rendimiento'][
-        data['rendimiento']['Categoria'].apply(_norm_cat) == cat_norm
-    ].copy() if 'Categoria' in data['rendimiento'].columns else data['rendimiento']
+        cat_norm = _norm_cat(categoria)
 
-    pfza_cat = data['pfza'][
-        data['pfza']['Categoria'].apply(_norm_cat) == cat_norm
-    ].copy() if 'Categoria' in data['pfza'].columns else data['pfza']
+        rend_cat = data['rendimiento'][
+            data['rendimiento']['Categoria'].apply(_norm_cat) == cat_norm
+        ].copy() if 'Categoria' in data['rendimiento'].columns else data['rendimiento']
 
-    rend_pre  = filter_by_month_smart(rend_cat, mes_pre,  categoria)
-    rend_post = filter_by_month_smart(rend_cat, mes_post, categoria)
-    pfza_pre  = filter_by_month_smart(pfza_cat, mes_pre,  categoria)
-    pfza_post = filter_by_month_smart(pfza_cat, mes_post, categoria)
+        pfza_cat = data['pfza'][
+            data['pfza']['Categoria'].apply(_norm_cat) == cat_norm
+        ].copy() if 'Categoria' in data['pfza'].columns else data['pfza']
 
-    print(f"[MBD FOREST] Datos filtrados - rend_pre: {len(rend_pre)}, rend_post: {len(rend_post)}, pfza_pre: {len(pfza_pre)}, pfza_post: {len(pfza_post)}", file=sys.stderr)
+        rend_pre  = filter_by_month_smart(rend_cat, mes_pre,  categoria)
+        rend_post = filter_by_month_smart(rend_cat, mes_post, categoria)
+        pfza_pre  = filter_by_month_smart(pfza_cat, mes_pre,  categoria)
+        pfza_post = filter_by_month_smart(pfza_cat, mes_post, categoria)
 
-    nombre_row = data['base'][data['base']['DNI'] == dni_grafico]['NombreCompleto'].values
-    nombre = nombre_row[0] if len(nombre_row) > 0 else str(dni_grafico)
-    print(f"[MBD FOREST] Nombre jugador: {nombre}", file=sys.stderr)
+        print(f"[MBD FOREST] Datos filtrados - rend_pre: {len(rend_pre)}, rend_post: {len(rend_post)}, pfza_pre: {len(pfza_pre)}, pfza_post: {len(pfza_post)}", file=sys.stderr)
 
-    resultados = []
-    for var in vars_rend + vars_pfza:
-        sheet_pre  = rend_pre  if var in vars_rend else pfza_pre
-        sheet_post = rend_post if var in vars_rend else pfza_post
+        nombre_row = data['base'][data['base']['DNI'] == dni_grafico]['NombreCompleto'].values
+        nombre = nombre_row[0] if len(nombre_row) > 0 else str(dni_grafico)
+        print(f"[MBD FOREST] Nombre jugador: {nombre}", file=sys.stderr)
 
-        if var not in sheet_pre.columns or var not in sheet_post.columns:
-            continue
+        resultados = []
+        for var in vars_rend + vars_pfza:
+            sheet_pre  = rend_pre  if var in vars_rend else pfza_pre
+            sheet_post = rend_post if var in vars_rend else pfza_post
 
-        fila_pre  = sheet_pre[sheet_pre['DNI'] == dni_grafico][var]
-        fila_post = sheet_post[sheet_post['DNI'] == dni_grafico][var]
-        grupo_pre = sheet_pre[var]
+            if var not in sheet_pre.columns or var not in sheet_post.columns:
+                continue
 
-        if fila_pre.empty or fila_post.empty:
-            continue
+            fila_pre  = sheet_pre[sheet_pre['DNI'] == dni_grafico][var]
+            fila_post = sheet_post[sheet_post['DNI'] == dni_grafico][var]
+            grupo_pre = sheet_pre[var]
 
-        mbd = calc_mbd(fila_pre.iloc[0], fila_post.iloc[0], grupo_pre)
-        if mbd:
-            mbd['variable'] = var
-            mbd['tipo'] = 'Rendimiento' if var in vars_rend else 'Fuerza'
-            resultados.append(mbd)
+            if fila_pre.empty or fila_post.empty:
+                continue
 
-    print(f"[MBD FOREST] Resultados calculados: {len(resultados)}", file=sys.stderr)
+            mbd = calc_mbd(fila_pre.iloc[0], fila_post.iloc[0], grupo_pre)
+            if mbd:
+                mbd['variable'] = var
+                mbd['tipo'] = 'Rendimiento' if var in vars_rend else 'Fuerza'
+                resultados.append(mbd)
 
-    if not resultados:
-        return html.Div("Sin datos suficientes para este jugador/periodo",
-                        style={'textAlign': 'center', 'color': '#888', 'padding': '30px'}), ""
+        print(f"[MBD FOREST] Resultados calculados: {len(resultados)}", file=sys.stderr)
 
-    fig = crear_forest_plot(resultados, nombre, mes_pre, mes_post)
-    resumen = crear_resumen(resultados)
-    print(f"[MBD FOREST] Gráfico y resumen creados exitosamente", file=sys.stderr)
-    return dcc.Graph(figure=fig, config={'displayModeBar': False}), resumen
+        if not resultados:
+            return html.Div("Sin datos suficientes para este jugador/periodo",
+                            style={'textAlign': 'center', 'color': '#888', 'padding': '30px'}), ""
+
+        fig = crear_forest_plot(resultados, nombre, mes_pre, mes_post)
+        resumen = crear_resumen(resultados)
+        print(f"[MBD FOREST] Gráfico y resumen creados exitosamente", file=sys.stderr)
+        return dcc.Graph(figure=fig, config={'displayModeBar': False}), resumen
+
+    except Exception as e:
+        print(f"[MBD FOREST ERROR] {str(e)}", file=sys.stderr)
+        return html.Div([
+            html.H5("Error al generar el Forest Plot", style={'color': '#dc3545'}),
+            html.P(f"Detalle: {str(e)}", style={'color': '#6c757d', 'fontSize': '12px'})
+        ], style={'textAlign': 'center', 'padding': '20px'}), ""
 
 
 def crear_forest_plot(resultados, nombre_jugador, mes_pre, mes_post):
@@ -588,17 +605,15 @@ def crear_resumen(resultados):
 
 
 def crear_tabla(resultados):
-    import dash_table
-
     # Preparar datos para la tabla con nombres amigables
     tabla_datos = []
     for r in resultados:
         etiqueta = get_etiqueta_inferencia(r['prob_ben'], r['prob_per'])
         color = get_color_etiqueta(etiqueta)
-        
+
         # Usar nombres de display amigables
         variable_display = DISPLAY_NAMES.get(r['variable'], r['variable'])
-        
+
         tabla_datos.append({
             'Variable': variable_display,
             'Tipo': r['tipo'],
