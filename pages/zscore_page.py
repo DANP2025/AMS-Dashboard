@@ -892,7 +892,7 @@ def actualizar_radar(dni_list, cat_comparar, mes_seleccionado, n_clicks_todos, d
                     linewidth=1,
                 ),
                 angularaxis=dict(
-                    tickfont=dict(size=11, color='#1a3a5c', family='IBM Plex Sans', weight='bold'),
+                    tickfont=dict(size=11, color='#1a3a5c', family='IBM Plex Sans'),
                     gridcolor='rgba(0,0,0,0.05)',
                     linecolor='rgba(0,0,0,0.1)',
                     showline=True,
@@ -919,8 +919,7 @@ def actualizar_radar(dni_list, cat_comparar, mes_seleccionado, n_clicks_todos, d
                 font=dict(
                     family='Rajdhani, sans-serif',
                     size=16,
-                    color='#1a3a5c',
-                    weight='bold'
+                    color='#1a3a5c'
                 ),
                 x=0.5,
                 xanchor='center',
