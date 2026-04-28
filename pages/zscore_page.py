@@ -596,9 +596,11 @@ def actualizar_zscore_optimizado(dni_list, cat_comparar, mes_seleccionado, data_
     State('zs-jugadores-store', 'data'),
 )
 def actualizar_radar(dni_list, cat_comparar, mes_seleccionado, n_clicks_todos, data_cache, jugadores_data):
+    import sys
     # Inicializar variables antes de cualquier logging
     modo_individual = len(dni_list) == 1
-    
+
+    print(f"[ZSCORE RADAR] Iniciando callback - jugadores: {len(dni_list) if dni_list else 0}, comparar: {cat_comparar}, mes: {mes_seleccionado}", file=sys.stderr)
     logger.debug(f"RADAR - jugadores: {len(dni_list) if dni_list else 0}, comparar: {cat_comparar}, mes: {mes_seleccionado}, clicks_todos: {n_clicks_todos}")
     logger.debug(f"RADAR - data_cache: {'recibido' if data_cache else 'no recibido'}")
     logger.debug(f"RADAR - jugadores_data: {len(jugadores_data) if jugadores_data else 0}")
@@ -622,6 +624,7 @@ def actualizar_radar(dni_list, cat_comparar, mes_seleccionado, n_clicks_todos, d
 
     # Validaciones rápidas primero
     if not dni_list or not cat_comparar or not data_cache or not mes_seleccionado:
+        print(f"[ZSCORE RADAR] Validación fallida - dni_list: {bool(dni_list)}, cat_comparar: {bool(cat_comparar)}, data_cache: {bool(data_cache)}, mes: {bool(mes_seleccionado)}", file=sys.stderr)
         logger.debug(f"RADAR - Validación fallida. dni_list: {bool(dni_list)}, cat_comparar: {bool(cat_comparar)}, data_cache: {bool(data_cache)}, mes: {bool(mes_seleccionado)}")
         return fig_vacia
 
@@ -933,5 +936,20 @@ def actualizar_radar(dni_list, cat_comparar, mes_seleccionado, n_clicks_todos, d
         return fig
 
     except Exception as e:
-        print(f"[ERROR] Radar: {e}")
-        return fig_vacia
+        import sys
+        print(f"[ZSCORE RADAR ERROR] {str(e)}", file=sys.stderr)
+        logger.error(f"Error en callback radar: {e}")
+        # Devolver figura con mensaje de error
+        fig_error = go.Figure()
+        fig_error.update_layout(
+            template='plotly_white',
+            paper_bgcolor='rgba(255,255,255,1)',
+            plot_bgcolor='rgba(255,255,255,0)',
+            annotations=[{
+                'text': f'Error: {str(e)}',
+                'showarrow': False,
+                'font': {'color': '#dc3545', 'size': 14}
+            }],
+            height=650
+        )
+        return fig_error
